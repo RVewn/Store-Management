@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مدیریت انبار آفلاین</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>سیستم انبارداری پویامتریک</h1>
+    <div id="status-badge" class="badge online">آنلاین</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>اسکن بارکد کالا</h2>
+      <div id="reader" style="width: 100%; max-width: 400px; margin: 0 auto;"></div>
+      <div class="actions">
+        <button id="btn-start-scan">شروع دوربین</button>
+        <button id="btn-stop-scan" class="secondary" disabled>توقف دوربین</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>ثبت / تغییر موجودی</h2>
+      <form id="inventory-form">
+        <div class="input-group">
+          <label>کد بارکد:</label>
+          <input type="text" id="barcode-input" required placeholder="اسکن کنید یا بنویسید">
+        </div>
+        <div class="input-group">
+          <label>نام کالا:</label>
+          <input type="text" id="title-input" required placeholder="نام محصول">
+        </div>
+        <div class="input-group">
+          <label>تعداد / موجودی:</label>
+          <input type="number" id="qty-input" value="1" required>
+        </div>
+        <div class="actions">
+          <button type="submit" class="success">ثبت در انبار</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>موجودی فعلی انبار</h2>
+      <table id="inventory-table">
+        <thead>
+          <tr>
+            <th>بارکد</th>
+            <th>نام کالا</th>
+            <th>موجودی</th>
+            <th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
