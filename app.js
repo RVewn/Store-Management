@@ -14,7 +14,7 @@ dbReq.onupgradeneeded = (e) => {
 
 dbReq.onsuccess = (e) => {
   db = e.target.result;
-  renderTable('');
+  renderTable(''); 
 };
 
 dbReq.onerror = (e) => console.error("خطای IndexedDB:", e.target.error);
@@ -32,7 +32,6 @@ function updateOnlineStatus() {
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
-
 
 let html5QrcodeScanner = null;
 
@@ -92,8 +91,18 @@ document.getElementById('inventory-form').addEventListener('submit', (e) => {
 
   const tx = db.transaction('inventory', 'readwrite');
   const store = tx.objectStore('inventory');
+  const checkReq = store.get(barcode);
 
-  store.put({ barcode, title, qty, updatedAt: new Date().toISOString() });
+  checkReq.onsuccess = () => {
+    const existingItem = checkReq.result;
+
+    if (existingItem && existingItem.title.toLowerCase() !== title.toLowerCase()) {
+      alert(`⚠️ خطا: این بارکد قبلاً برای کالای "${existingItem.title}" ثبت شده است!\nنمی‌توانید آن را برای "${title}" ثبت کنید.`);
+      return;
+    }
+
+    store.put({ barcode, title, qty, updatedAt: new Date().toISOString() });
+  };
 
   tx.oncomplete = () => {
     alert('کالا با موفقیت ذخیره شد.');
@@ -132,13 +141,13 @@ function renderTable(searchQuery = '') {
           <td>${item.title}</td>
           <td>
             <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <button class="secondary" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', -1)">-</button>
+              <button type="button" class="secondary" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', -1)">-</button>
               <strong style="min-width: 24px; text-align: center;">${item.qty}</strong>
-              <button class="success" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', 1)">+</button>
+              <button type="button" class="success" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', 1)">+</button>
             </div>
           </td>
           <td>
-            <button class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
+            <button type="button" class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
           </td>
         `;
         tbody.appendChild(tr);
