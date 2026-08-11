@@ -1,3 +1,4 @@
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
@@ -14,8 +15,10 @@ dbReq.onupgradeneeded = (e) => {
 
 dbReq.onsuccess = (e) => {
   db = e.target.result;
-  renderTable();
+  renderTable(''); 
 };
+
+dbReq.onerror = (e) => console.error("خطای IndexedDB:", e.target.error);
 
 const statusBadge = document.getElementById('status-badge');
 function updateOnlineStatus() {
@@ -38,7 +41,7 @@ document.getElementById('btn-start-scan').addEventListener('click', () => {
   const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
   html5QrcodeScanner.start(
-    { facingMode: "environment" },
+    { facingMode: "environment" }, 
     config,
     (decodedText) => {
       document.getElementById('barcode-input').value = decodedText;
@@ -95,13 +98,21 @@ document.getElementById('inventory-form').addEventListener('submit', (e) => {
   tx.oncomplete = () => {
     alert('کالا با موفقیت ذخیره شد.');
     document.getElementById('inventory-form').reset();
-    renderTable();
+    renderTable('');
   };
 });
 
-function renderTable() {
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  const query = e.target.value.trim().toLowerCase();
+  renderTable(query);
+});
+
+function renderTable(searchQuery = '') {
   const tbody = document.querySelector('#inventory-table tbody');
   tbody.innerHTML = '';
+
+  if (!db) return;
 
   const tx = db.transaction('inventory', 'readonly');
   const store = tx.objectStore('inventory');
@@ -111,16 +122,23 @@ function renderTable() {
     const cursor = e.target.result;
     if (cursor) {
       const item = cursor.value;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${item.barcode}</td>
-        <td>${item.title}</td>
-        <td><strong>${item.qty}</strong></td>
-        <td>
-          <button class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
+      
+      const matchesBarcode = item.barcode.toLowerCase().includes(searchQuery);
+      const matchesTitle = item.title.toLowerCase().includes(searchQuery);
+
+      if (matchesBarcode || matchesTitle) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.barcode}</td>
+          <td>${item.title}</td>
+          <td><strong>${item.qty}</strong></td>
+          <td>
+            <button class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+      
       cursor.continue();
     }
   };
@@ -131,6 +149,6 @@ window.deleteItem = function(barcode) {
     const tx = db.transaction('inventory', 'readwrite');
     const store = tx.objectStore('inventory');
     store.delete(barcode);
-    tx.oncomplete = () => renderTable();
+    tx.oncomplete = () => renderTable('');
   }
 };
