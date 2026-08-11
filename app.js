@@ -1,4 +1,3 @@
-
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
@@ -15,7 +14,7 @@ dbReq.onupgradeneeded = (e) => {
 
 dbReq.onsuccess = (e) => {
   db = e.target.result;
-  renderTable(''); 
+  renderTable('');
 };
 
 dbReq.onerror = (e) => console.error("خطای IndexedDB:", e.target.error);
@@ -34,6 +33,7 @@ window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
 
+
 let html5QrcodeScanner = null;
 
 document.getElementById('btn-start-scan').addEventListener('click', () => {
@@ -41,7 +41,7 @@ document.getElementById('btn-start-scan').addEventListener('click', () => {
   const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
   html5QrcodeScanner.start(
-    { facingMode: "environment" }, 
+    { facingMode: "environment" },
     config,
     (decodedText) => {
       document.getElementById('barcode-input').value = decodedText;
@@ -102,7 +102,6 @@ document.getElementById('inventory-form').addEventListener('submit', (e) => {
   };
 });
 
-
 document.getElementById('search-input').addEventListener('input', (e) => {
   const query = e.target.value.trim().toLowerCase();
   renderTable(query);
@@ -131,7 +130,13 @@ function renderTable(searchQuery = '') {
         tr.innerHTML = `
           <td>${item.barcode}</td>
           <td>${item.title}</td>
-          <td><strong>${item.qty}</strong></td>
+          <td>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <button class="secondary" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', -1)">-</button>
+              <strong style="min-width: 24px; text-align: center;">${item.qty}</strong>
+              <button class="success" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', 1)">+</button>
+            </div>
+          </td>
           <td>
             <button class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
           </td>
@@ -144,11 +149,35 @@ function renderTable(searchQuery = '') {
   };
 }
 
+window.changeQty = function(barcode, amount) {
+  const tx = db.transaction('inventory', 'readwrite');
+  const store = tx.objectStore('inventory');
+  const req = store.get(barcode);
+
+  req.onsuccess = () => {
+    const item = req.result;
+    if (item) {
+      item.qty += amount;
+      if (item.qty < 0) item.qty = 0; 
+      item.updatedAt = new Date().toISOString();
+      store.put(item);
+    }
+  };
+
+  tx.oncomplete = () => {
+    const currentQuery = document.getElementById('search-input').value.trim().toLowerCase();
+    renderTable(currentQuery);
+  };
+};
+
 window.deleteItem = function(barcode) {
   if (confirm('آیا از حذف این کالا اطمینان دارید؟')) {
     const tx = db.transaction('inventory', 'readwrite');
     const store = tx.objectStore('inventory');
     store.delete(barcode);
-    tx.oncomplete = () => renderTable('');
+    tx.oncomplete = () => {
+      const currentQuery = document.getElementById('search-input').value.trim().toLowerCase();
+      renderTable(currentQuery);
+    };
   }
 };
