@@ -1,19 +1,24 @@
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
+
 let db;
 const dbReq = indexedDB.open('WarehouseDB', 1);
+
 dbReq.onupgradeneeded = (e) => {
   db = e.target.result;
   if (!db.objectStoreNames.contains('inventory')) {
     db.createObjectStore('inventory', { keyPath: 'barcode' });
   }
 };
+
 dbReq.onsuccess = (e) => {
   db = e.target.result;
-  renderTable(''); 
+  renderTable('');
 };
+
 dbReq.onerror = (e) => console.error("خطای IndexedDB:", e.target.error);
+
 const statusBadge = document.getElementById('status-badge');
 function updateOnlineStatus() {
   if (navigator.onLine) {
@@ -27,10 +32,13 @@ function updateOnlineStatus() {
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
+
 let html5QrcodeScanner = null;
+
 document.getElementById('btn-start-scan').addEventListener('click', () => {
   html5QrcodeScanner = new Html5Qrcode("reader");
   const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
   html5QrcodeScanner.start(
     { facingMode: "environment" },
     config,
@@ -45,6 +53,7 @@ document.getElementById('btn-start-scan').addEventListener('click', () => {
     document.getElementById('btn-stop-scan').disabled = false;
   }).catch(err => alert("خطا در دسترسی به دوربین: " + err));
 });
+
 function stopScanner() {
   if (html5QrcodeScanner) {
     html5QrcodeScanner.stop().then(() => {
@@ -53,76 +62,90 @@ function stopScanner() {
     });
   }
 }
+
 document.getElementById('btn-stop-scan').addEventListener('click', stopScanner);
+
 function fetchProductDetails(barcode) {
+  const statusMsg = document.getElementById('status-message');
   const tx = db.transaction('inventory', 'readonly');
   const store = tx.objectStore('inventory');
   const req = store.get(barcode);
+
   req.onsuccess = () => {
     if (req.result) {
       document.getElementById('title-input').value = req.result.title;
       document.getElementById('qty-input').value = req.result.qty;
+      statusMsg.textContent = `✅ موجودی فعلی: ${req.result.qty} عدد`;
+      statusMsg.style.color = "#27ae60";
     } else {
       document.getElementById('title-input').value = '';
       document.getElementById('qty-input').value = '1';
+      statusMsg.textContent = "ℹ️ کالای جدید: این بارکد در انبار ثبت نشده است.";
+      statusMsg.style.color = "#2980b9";
     }
   };
 }
+
 document.getElementById('inventory-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  const statusMsg = document.getElementById('status-message');
   const barcode = document.getElementById('barcode-input').value.trim();
   const title = document.getElementById('title-input').value.trim();
   const qty = parseInt(document.getElementById('qty-input').value, 10);
+
   if (!barcode || !title) return;
+
   const tx = db.transaction('inventory', 'readwrite');
   const store = tx.objectStore('inventory');
   const checkReq = store.get(barcode);
+
   checkReq.onsuccess = () => {
     const existingItem = checkReq.result;
     if (existingItem && existingItem.title.toLowerCase() !== title.toLowerCase()) {
-      alert(`⚠️ خطا: این بارکد قبلاً برای کالای "${existingItem.title}" ثبت شده است!\nنمی‌توانید آن را برای "${title}" ثبت کنید.`);
+      alert(`⚠️ خطا: این بارکد قبلاً برای کالای "${existingItem.title}" ثبت شده است!`);
       return;
     }
     store.put({ barcode, title, qty, updatedAt: new Date().toISOString() });
   };
+
   tx.oncomplete = () => {
     alert('کالا با موفقیت ذخیره شد.');
     document.getElementById('inventory-form').reset();
+    statusMsg.textContent = ""; 
     renderTable('');
   };
 });
+
 document.getElementById('search-input').addEventListener('input', (e) => {
-  const query = e.target.value.trim().toLowerCase();
-  renderTable(query);
+  renderTable(e.target.value.trim().toLowerCase());
 });
+
 function renderTable(searchQuery = '') {
   const tbody = document.querySelector('#inventory-table tbody');
   tbody.innerHTML = '';
   if (!db) return;
+
   const tx = db.transaction('inventory', 'readonly');
   const store = tx.objectStore('inventory');
   const req = store.openCursor();
+
   req.onsuccess = (e) => {
     const cursor = e.target.result;
     if (cursor) {
       const item = cursor.value;
-      const matchesBarcode = item.barcode.toLowerCase().includes(searchQuery);
-      const matchesTitle = item.title.toLowerCase().includes(searchQuery);
-      if (matchesBarcode || matchesTitle) {
+      if (item.barcode.toLowerCase().includes(searchQuery) || item.title.toLowerCase().includes(searchQuery)) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${item.barcode}</td>
           <td>${item.title}</td>
           <td>
             <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <button type="button" class="secondary" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', -1)">-</button>
+              <button type="button" class="secondary" style="padding: 2px 8px;" onclick="changeQty('${item.barcode}', -1)">-</button>
               <strong style="min-width: 24px; text-align: center;">${item.qty}</strong>
-              <button type="button" class="success" style="padding: 2px 8px; font-weight: bold;" onclick="changeQty('${item.barcode}', 1)">+</button>
+              <button type="button" class="success" style="padding: 2px 8px;" onclick="changeQty('${item.barcode}', 1)">+</button>
             </div>
           </td>
-          <td>
-            <button type="button" class="danger" onclick="deleteItem('${item.barcode}')">حذف</button>
-          </td>
+          <td><button type="button" class="danger" onclick="deleteItem('${item.barcode}')">حذف</button></td>
         `;
         tbody.appendChild(tr);
       }
@@ -130,6 +153,7 @@ function renderTable(searchQuery = '') {
     }
   };
 }
+
 window.changeQty = function(barcode, amount) {
   const tx = db.transaction('inventory', 'readwrite');
   const store = tx.objectStore('inventory');
@@ -137,25 +161,19 @@ window.changeQty = function(barcode, amount) {
   req.onsuccess = () => {
     const item = req.result;
     if (item) {
-      item.qty += amount;
-      if (item.qty < 0) item.qty = 0; 
+      item.qty = Math.max(0, item.qty + amount);
       item.updatedAt = new Date().toISOString();
       store.put(item);
     }
   };
-  tx.oncomplete = () => {
-    const currentQuery = document.getElementById('search-input').value.trim().toLowerCase();
-    renderTable(currentQuery);
-  };
+  tx.oncomplete = () => renderTable(document.getElementById('search-input').value.trim().toLowerCase());
 };
+
 window.deleteItem = function(barcode) {
-  if (confirm('آیا از حذف این کالا اطمینان دارید؟')) {
+  if (confirm('آیا حذف شود؟')) {
     const tx = db.transaction('inventory', 'readwrite');
-    const store = tx.objectStore('inventory');
+    store = tx.objectStore('inventory');
     store.delete(barcode);
-    tx.oncomplete = () => {
-      const currentQuery = document.getElementById('search-input').value.trim().toLowerCase();
-      renderTable(currentQuery);
-    };
+    tx.oncomplete = () => renderTable(document.getElementById('search-input').value.trim().toLowerCase());
   }
 };
